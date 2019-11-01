@@ -7,50 +7,75 @@
 int button=12;                 //boton de Encendido
 int radar=11;                  //Gatillo de Radar
 int segment[4][7];            //LCD segment data stored here
-int measuredSpeed, oldSpeed, unit;  //converted data to speed
+int measuredSpeed, oldSpeed;  //converted data to speed
+bool is_unit_kph;
 
 int ax, ay, az;
-int16_t Tmp;
 char flag;
+int16_t Tmp;
 
 // La dirección del MPU6050 puede ser 0x68 o 0x69, dependiendo 
 // del estado de AD0. Si no se especifica, 0x68 estará implicito
 MPU6050 sensor;
 
 void setup() {
-Serial.begin(115200);//for debugging
+    Serial.begin(115200);//for debugging
     delay(2000);
     while (!Serial){ };
-    Serial.println("hola rpi soy Leonardo");
-    ///////////////////Inicializacion Radar////////////////////
-    pinMode(button,OUTPUT);
-    pinMode(radar,OUTPUT);
-    flag = 'I';  
+    Serial.println("Hola rpi soy Leonardo");
+    ///////////// INICIANDO LAS VARIABLES ////////////
+    flag = 'I';
+    /*
+     * " " -> No hago nada
+     * "I" -> Recien inicie y apago el dispositivo
+     * "S" -> Estoy funcionando e imprimiendo
+     * "T" -> Debo cambiar la unidad
+     * "O" -> Estado apagado
+     * "R" -> Reset
+    */
+    
+    is_unit_kph = false;
+    
+    ///////////// Inicializacion Radar ////////////////
+    pinMode(button, OUTPUT);
+    pinMode(radar, OUTPUT);
+    
+    Serial.print("Initial flag: ");
     Serial.println(flag);
     ///////////////////Inicializacion MPU6050/////////////////
     Wire.begin();           //Iniciando I2C  
     sensor.initialize();    //Iniciando el sensor
-    if (sensor.testConnection()) 
-    Serial.println("Sensor init");
-    else Serial.println("Error init");
+    if (sensor.testConnection())
+      Serial.println("Success sensor init");
+    else
+      Serial.println("Error with sensor init");
 }
 
 void loop(){
-   if (Serial.available()) {
-     flag = Serial.read();
-      Serial.println("new flag");
-      Serial.println(flag);
-      speed_flag();
-   } 
-   else {
-      if (flag=='S'){
-        speed_comparation();
-        speed_print();
-        }
-   }
+  if (Serial.available()) {
+    Serial.print("New flag: ");
+    flag = Serial.read();
+    Serial.println(flag);
+    excecute_flag();
+  } 
+
+  if (flag=='S'){
+    Serial.print("Starting report");
+    get_speed();
+    speed_print();
+  }
+
+  if (flag == 'I'){
+    Serial.println("Shot down BEGIN");
+    digitalWrite(radar,LOW);
+    digitalWrite(button,HIGH);
+    delay(3500);
+    digitalWrite(button,LOW);
+    flag = ' ';
+  }
 }
 
-void speed_comparation(){
+void get_speed(){
   ///////////////////Obtencion de la Velocidad////////////////
     delay(350);// update rate
     
@@ -183,9 +208,9 @@ void speed_comparation(){
       measuredSpeed = measuredSpeed + (2 * 100);
     }
     if (segment[1][6] == 1){
-      unit = 1;
+      is_unit_kph = true;
     }else {
-      unit=0;
+      is_unit_kph = false;
       }
     for (int i = 0; i < 4; i++) {
       for (int j = 0; j < 7; j++) {
@@ -197,83 +222,79 @@ void speed_comparation(){
 
 }
 
-void speed_print(){
-  ///////////////////Imprimir solo si esta la en la unidad correta y si es requerido los datos//////////////////
-          if (unit == 1){
-          if (flag=='S'){
-          sensor.getAcceleration(&ax, &ay, &az);     //Calcular los angulos de inclinacion:
-          float accel_ang_x=atan(ax/sqrt(pow(ay,2) + pow(az,2)))*(180.0/3.14);
-          float accel_ang_y=atan(ay/sqrt(pow(ax,2) + pow(az,2)))*(180.0/3.14);
-          Tmp=sensor.getTemperature();
-          //Mostrar los angulos separadas por un [tab]
-          Serial.print("{\"speed\":"); 
-          Serial.print(measuredSpeed);
-          Serial.print(",\"tilt\":"); 
-          Serial.print(accel_ang_x);
-          Serial.print(",\"temp\":"); 
-          Serial.print(Tmp/340.00+26.53);
-          Serial.println("}"); 
-          delay(300);
-          }
-        }
-        else if (unit == 0 && flag=='S'){
-          digitalWrite(button,HIGH);
-          delay(500);
-          digitalWrite(button,LOW);
-          delay(3000);
-          digitalWrite(radar,HIGH);
-          delay(1000);
-          digitalWrite(radar,LOW);
-          delay(1000);
-          digitalWrite(radar,HIGH);
-         }
-          if (flag == 'I'){
-          Serial.println("shot down BEGIN");
-          digitalWrite(radar,LOW);
-          digitalWrite(button,HIGH);
-          delay(3500);
-          digitalWrite(button,LOW);
-          flag=' ';
-          }
+void speed_print(){  
+    sensor.getAcceleration(&ax, &ay, &az);     //Calcular los angulos de inclinacion:
+    float accel_ang_x=atan(ax/sqrt(pow(ay,2) + pow(az,2)))*(180.0/3.14);
+    float accel_ang_y=atan(ay/sqrt(pow(ax,2) + pow(az,2)))*(180.0/3.14);
+    Tmp=sensor.getTemperature();
+    String string_unit = "";
+    if (is_unit_kph){
+      string_unit = "KPH";
+    }
+    else{
+      string_unit = "MPH";
+    }
+    //Mostrar los angulos separadas por un [tab]
+    Serial.print("{\"speed\":"); 
+    Serial.print(measuredSpeed);
+    Serial.print(",\"unit\":"); 
+    Serial.print(string_unit);
+    Serial.print(",\"tilt\":"); 
+    Serial.print(accel_ang_x);
+    Serial.print(",\"temp\":"); 
+    Serial.print(Tmp/340.00+26.53);
+    Serial.println("}");
+    delay(300);
 }
   
 
-void speed_flag(){
+void excecute_flag(){
     if (flag=='S'){
-          //S for init transmition serial data
-          digitalWrite(button,HIGH);
-          delay(300);
-          digitalWrite(button,LOW);
-          delay(3000);
-          digitalWrite(radar,HIGH);
-          delay(1000);
-          digitalWrite(radar,LOW);
-          delay(1000);
-          digitalWrite(radar,HIGH);
-          }
-        if (flag== 'R'){
-          digitalWrite(button,HIGH);
-          delay(500);
-          digitalWrite(button,LOW);
-          digitalWrite(radar,LOW);
-          }
-        if (flag== 'A'){
-          Serial.println("shot down BEGIN");
-          digitalWrite(radar,LOW);
-          digitalWrite(button,HIGH);
-          delay(3100);
-          digitalWrite(button,LOW);
-          }
-        if (flag== 'O'){
-          flag=' '; unit=0;
-          digitalWrite(radar,LOW);
-          digitalWrite(button,HIGH);
-          delay(800);
-          digitalWrite(button,LOW);
-          delay(1000);
-          digitalWrite(button,HIGH);
-          delay(3000);
-          digitalWrite(button,LOW);
-        }
+        //S for init transmition serial data
+        digitalWrite(button,HIGH);
+        delay(300);
+        digitalWrite(button,LOW);
+        delay(3000);
+        digitalWrite(radar,HIGH);
+        delay(1000);
+        digitalWrite(radar,LOW);
+        delay(1000);
+        digitalWrite(radar,HIGH);
+      }
+      if (flag == "T"){
+        toggle_unit()
+      }
+      if (flag== 'R'){
+        // Reset the doppler effect sensor
+        digitalWrite(button,HIGH);
+        delay(500);
+        digitalWrite(button,LOW);
+        digitalWrite(radar,LOW);
+      }
+      if (flag== 'O'){
+        // Turn off the sensor
+        flag=' ';
+        is_unit_kph = false;
+        digitalWrite(radar,LOW);
+        digitalWrite(button,HIGH);
+        delay(800);
+        digitalWrite(button,LOW);
+        delay(1000);
+        digitalWrite(button,HIGH);
+        delay(3000);
+        digitalWrite(button,LOW);
+      }
   }
+
+void toggle_unit(){
+  digitalWrite(button,HIGH);
+  delay(500);
+  digitalWrite(button,LOW);
+  delay(3000);
+  digitalWrite(radar,HIGH);
+  delay(1000);
+  digitalWrite(radar,LOW);
+  delay(1000);
+  digitalWrite(radar,HIGH);
+}
   
