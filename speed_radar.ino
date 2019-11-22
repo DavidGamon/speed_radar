@@ -261,29 +261,29 @@ void excecute_flag(){
         delay(1000);
         digitalWrite(radar,HIGH);
       }
-      if (flag == "T"){
-        toggle_unit()
-      }
-      if (flag== 'R'){
-        // Reset the doppler effect sensor
-        digitalWrite(button,HIGH);
-        delay(500);
-        digitalWrite(button,LOW);
-        digitalWrite(radar,LOW);
-      }
-      if (flag== 'O'){
-        // Turn off the sensor
-        flag=' ';
-        is_unit_kph = false;
-        digitalWrite(radar,LOW);
-        digitalWrite(button,HIGH);
-        delay(800);
-        digitalWrite(button,LOW);
-        delay(1000);
-        digitalWrite(button,HIGH);
-        delay(3000);
-        digitalWrite(button,LOW);
-      }
+    if (flag == 'T'){
+      toggle_unit();
+    }
+    if (flag== 'R'){
+      // Reset the doppler effect sensor
+      digitalWrite(button,HIGH);
+      delay(500);
+      digitalWrite(button,LOW);
+      digitalWrite(radar,LOW);
+    }
+    if (flag== 'O'){
+      // Turn off the sensor
+      flag=' ';
+      is_unit_kph = false;
+      digitalWrite(radar,LOW);
+      digitalWrite(button,HIGH);
+      delay(800);
+      digitalWrite(button,LOW);
+      delay(1000);
+      digitalWrite(button,HIGH);
+      delay(3000);
+      digitalWrite(button,LOW);
+    }
   }
 
 void toggle_unit(){
